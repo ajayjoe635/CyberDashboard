@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyberDashboard — Nessus + MITRE ATT&CK</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050a0f;
+  --bg2: #0a1520;
+  --bg3: #0f1e2d;
+  --teal: #00e5c3;
+  --teal2: #00b89a;
+  --amber: #ffb547;
+  --red: #ff4757;
+  --orange: #ff6b35;
+  --blue: #4a9eff;
+  --green: #2ecc71;
+  --muted: #4a6375;
+  --text: #d4e8f5;
+  --text2: #7a9bb0;
+  --border: rgba(0,229,195,0.1);
+  --mono: 'Space Mono', monospace;
+  --sans: 'Syne', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: linear-gradient(rgba(0,229,195,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,195,0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none; z-index: 0;
+}
+
+/* Header */
+.header {
+  position: relative; z-index: 10;
+  padding: 1.25rem 2rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(5,10,15,0.9);
+  backdrop-filter: blur(10px);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon { font-size: 24px; color: var(--teal); }
+.logo-text { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--teal); letter-spacing: 0.08em; }
+.logo-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.12em; }
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px;
+  padding: 5px 12px; border-radius: 20px;
+  border: 1px solid rgba(0,229,195,0.3);
+  background: rgba(0,229,195,0.05); color: var(--teal);
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* Layout */
+.container { position: relative; z-index: 5; padding: 1.5rem 2rem; max-width: 1400px; margin: 0 auto; }
+
+/* Scan selector */
+.scan-selector { display: flex; gap: 10px; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center; }
+.scan-label { font-family: var(--mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+.scan-btn {
+  padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg2); color: var(--text2); cursor: pointer;
+  font-family: var(--mono); font-size: 11px; transition: all 0.2s;
+}
+.scan-btn:hover, .scan-btn.active {
+  border-color: var(--teal); color: var(--teal);
+  background: rgba(0,229,195,0.08);
+}
+.refresh-btn {
+  padding: 8px 16px; border-radius: 6px; border: none;
+  background: linear-gradient(135deg, var(--teal), var(--teal2));
+  color: var(--bg); cursor: pointer; font-family: var(--mono);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+}
+
+/* Stats row */
+.stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+.stat-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1rem; text-align: center;
+  position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.stat-card.critical::before { background: var(--red); }
+.stat-card.high::before { background: var(--orange); }
+.stat-card.medium::before { background: var(--amber); }
+.stat-card.low::before { background: var(--green); }
+.stat-card.info::before { background: var(--blue); }
+.stat-num { font-family: var(--mono); font-size: 28px; font-weight: 700; display: block; margin-bottom: 4px; }
+.stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* Grid */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+.grid3 { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+
+/* Cards */
+.card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.25rem;
+}
+.card-title {
+  font-family: var(--mono); font-size: 11px; color: var(--teal);
+  text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 1rem;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.card-count { color: var(--muted); font-size: 10px; }
+
+/* Vulnerability list */
+.vuln-list { display: flex; flex-direction: column; gap: 6px; max-height: 400px; overflow-y: auto; }
+.vuln-item {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px;
+  display: grid; grid-template-columns: auto 1fr auto;
+  gap: 10px; align-items: center;
+  transition: border-color 0.2s;
+}
+.vuln-item:hover { border-color: rgba(0,229,195,0.2); }
+.severity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.vuln-name { font-size: 12px; color: var(--text); }
+.vuln-meta { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 2px; }
+.severity-badge {
+  font-family: var(--mono); font-size: 9px; padding: 2px 7px;
+  border-radius: 3px; white-space: nowrap; font-weight: 700;
+}
+
+/* MITRE table */
+.mitre-list { display: flex; flex-direction: column; gap: 6px; max-height: 400px; overflow-y: auto; }
+.mitre-item {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.mitre-id { font-family: var(--mono); font-size: 10px; color: var(--teal); font-weight: 700; }
+.mitre-name { font-size: 11px; color: var(--text); margin-top: 2px; }
+.mitre-tactic {
+  font-family: var(--mono); font-size: 9px; padding: 2px 8px;
+  border-radius: 3px; background: rgba(0,229,195,0.08);
+  color: var(--teal2); border: 1px solid rgba(0,229,195,0.15);
+  white-space: nowrap;
+}
+
+/* Hosts table */
+.hosts-table { width: 100%; border-collapse: collapse; }
+.hosts-table th {
+  font-family: var(--mono); font-size: 9px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border);
+}
+.hosts-table td { padding: 8px 8px; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.hosts-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* AI Analysis */
+.ai-box {
+  background: var(--bg3); border: 1px solid rgba(0,229,195,0.15);
+  border-radius: 10px; padding: 1.25rem;
+  font-size: 13px; color: var(--text2); line-height: 1.7;
+  white-space: pre-wrap;
+}
+.ai-loading { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+
+/* Chart bars */
+.bar-chart { display: flex; flex-direction: column; gap: 10px; }
+.bar-item { display: flex; align-items: center; gap: 10px; }
+.bar-label { font-family: var(--mono); font-size: 10px; color: var(--text2); width: 60px; text-align: right; }
+.bar-track { flex: 1; height: 20px; background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; display: flex; align-items: center; padding-left: 8px; }
+.bar-count { font-family: var(--mono); font-size: 10px; color: var(--bg); font-weight: 700; }
+
+/* Empty state */
+.empty { text-align: center; padding: 3rem; color: var(--muted); font-family: var(--mono); font-size: 12px; }
+
+/* Loading */
+.loading { text-align: center; padding: 3rem; color: var(--teal); font-family: var(--mono); font-size: 12px; }
+
+@media (max-width: 768px) {
+  .stats-row { grid-template-columns: repeat(3, 1fr); }
+  .grid2, .grid3 { grid-template-columns: 1fr; }
+  .container { padding: 1rem; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">🔐</div>
+    <div>
+      <div class="logo-text">CYBERDASHBOARD</div>
+      <div class="logo-sub">Nessus + MITRE ATT&CK + AI Analysis</div>
+    </div>
+  </div>
+  <div class="status-pill">
+    <div class="dot"></div>
+    <span id="statusText">CONNECTING...</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Scan selector -->
+  <div class="scan-selector">
+    <span class="scan-label">Select Scan:</span>
+    <div id="scanButtons">
+      <span style="color:var(--muted);font-family:var(--mono);font-size:11px;">Loading scans...</span>
+    </div>
+    <button class="refresh-btn" onclick="refreshScan()">↻ REFRESH</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card critical">
+      <span class="stat-num" id="statCritical" style="color:var(--red)">0</span>
+      <div class="stat-label">Critical</div>
+    </div>
+    <div class="stat-card high">
+      <span class="stat-num" id="statHigh" style="color:var(--orange)">0</span>
+      <div class="stat-label">High</div>
+    </div>
+    <div class="stat-card medium">
+      <span class="stat-num" id="statMedium" style="color:var(--amber)">0</span>
+      <div class="stat-label">Medium</div>
+    </div>
+    <div class="stat-card low">
+      <span class="stat-num" id="statLow" style="color:var(--green)">0</span>
+      <div class="stat-label">Low</div>
+    </div>
+    <div class="stat-card info">
+      <span class="stat-num" id="statInfo" style="color:var(--blue)">0</span>
+      <div class="stat-label">Info</div>
+    </div>
+  </div>
+
+  <!-- Severity chart + Hosts -->
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Severity Distribution</div>
+      <div class="bar-chart" id="severityChart">
+        <div class="empty">Select a scan to view data</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Scanned Hosts <span class="card-count" id="hostCount">0 hosts</span></div>
+      <div style="overflow-x:auto;">
+        <table class="hosts-table" id="hostsTable">
+          <thead>
+            <tr>
+              <th>Host</th>
+              <th>Critical</th>
+              <th>High</th>
+              <th>Medium</th>
+              <th>Low</th>
+            </tr>
+          </thead>
+          <tbody id="hostsBody">
+            <tr><td colspan="5" class="empty">No data</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vulnerabilities + MITRE -->
+  <div class="grid3">
+    <div class="card">
+      <div class="card-title">Vulnerabilities <span class="card-count" id="vulnCount">0 found</span></div>
+      <div class="vuln-list" id="vulnList">
+        <div class="empty">Select a scan to view vulnerabilities</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">MITRE ATT&CK Mapping</div>
+      <div class="mitre-list" id="mitreList">
+        <div class="empty">No mappings yet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Analysis -->
+  <div class="card">
+    <div class="card-title">🤖 AI Security Analysis <span class="card-count">Powered by Claude</span></div>
+    <div class="ai-box" id="aiAnalysis">Select a scan to generate AI analysis...</div>
+  </div>
+
+</div>
+
+<script>
+let currentScanId = null;
+let scans = [];
+
+async function loadScans() {
+  try {
+    const r = await fetch('/api/scans');
+    scans = await r.json();
+    
+    const container = document.getElementById('scanButtons');
+    if (!scans || scans.length === 0) {
+      container.innerHTML = '<span style="color:var(--red);font-family:var(--mono);font-size:11px;">No scans found — check Nessus connection</span>';
+      document.getElementById('statusText').textContent = 'NO SCANS';
+      return;
+    }
+    
+    document.getElementById('statusText').textContent = `CONNECTED · ${scans.length} SCANS`;
+    
+    container.innerHTML = scans.map(s => `
+      <button class="scan-btn" onclick="loadScan(${s.id}, this)" data-id="${s.id}">
+        ${s.name} (${s.status})
+      </button>
+    `).join('');
+    
+    // Auto-load first scan
+    if (scans.length > 0) {
+      const firstBtn = container.querySelector('.scan-btn');
+      loadScan(scans[0].id, firstBtn);
+    }
+  } catch(e) {
+    document.getElementById('scanButtons').innerHTML = '<span style="color:var(--red);font-family:var(--mono);font-size:11px;">⚠ Cannot connect to Nessus — check your .env file</span>';
+    document.getElementById('statusText').textContent = 'DISCONNECTED';
+  }
+}
+
+async function loadScan(scanId, btn) {
+  currentScanId = scanId;
+  
+  document.querySelectorAll('.scan-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  
+  document.getElementById('vulnList').innerHTML = '<div class="loading">Loading vulnerabilities...</div>';
+  document.getElementById('aiAnalysis').innerHTML = '<span class="ai-loading">Generating AI analysis... this may take a moment...</span>';
+  
+  try {
+    const r = await fetch(`/api/scan/${scanId}`);
+    const data = await r.json();
+    
+    updateStats(data.severity_counts);
+    renderVulnerabilities(data.vulnerabilities);
+    renderMitre(data.vulnerabilities);
+    renderHosts(data.hosts);
+    renderSeverityChart(data.severity_counts);
+    
+    document.getElementById('aiAnalysis').textContent = data.ai_analysis;
+    document.getElementById('vulnCount').textContent = `${data.total_vulns} found`;
+    
+  } catch(e) {
+    document.getElementById('vulnList').innerHTML = '<div class="empty">Error loading scan data</div>';
+    document.getElementById('aiAnalysis').textContent = 'Error loading AI analysis';
+  }
+}
+
+function refreshScan() {
+  if (currentScanId) {
+    const activeBtn = document.querySelector('.scan-btn.active');
+    loadScan(currentScanId, activeBtn);
+  } else {
+    loadScans();
+  }
+}
+
+function updateStats(counts) {
+  document.getElementById('statCritical').textContent = counts.Critical || 0;
+  document.getElementById('statHigh').textContent = counts.High || 0;
+  document.getElementById('statMedium').textContent = counts.Medium || 0;
+  document.getElementById('statLow').textContent = counts.Low || 0;
+  document.getElementById('statInfo').textContent = counts.Info || 0;
+}
+
+function renderSeverityChart(counts) {
+  const total = Object.values(counts).reduce((a,b) => a+b, 0) || 1;
+  const items = [
+    { label: 'Critical', count: counts.Critical || 0, color: '#ff4757' },
+    { label: 'High', count: counts.High || 0, color: '#ff6b35' },
+    { label: 'Medium', count: counts.Medium || 0, color: '#ffb547' },
+    { label: 'Low', count: counts.Low || 0, color: '#2ecc71' },
+    { label: 'Info', count: counts.Info || 0, color: '#4a9eff' },
+  ];
+  
+  document.getElementById('severityChart').innerHTML = items.map(item => `
+    <div class="bar-item">
+      <div class="bar-label">${item.label}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${Math.max((item.count/total)*100, item.count > 0 ? 5 : 0)}%;background:${item.color}">
+          ${item.count > 0 ? `<span class="bar-count">${item.count}</span>` : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderVulnerabilities(vulns) {
+  if (!vulns || vulns.length === 0) {
+    document.getElementById('vulnList').innerHTML = '<div class="empty">No vulnerabilities found</div>';
+    return;
+  }
+  
+  document.getElementById('vulnList').innerHTML = vulns.map(v => `
+    <div class="vuln-item">
+      <div class="severity-dot" style="background:${v.severity_color}"></div>
+      <div>
+        <div class="vuln-name">${v.plugin_name}</div>
+        <div class="vuln-meta">Count: ${v.count} · Plugin: ${v.plugin_id} · MITRE: ${v.mitre_id}</div>
+      </div>
+      <div class="severity-badge" style="background:${v.severity_color}22;color:${v.severity_color};border:1px solid ${v.severity_color}44">
+        ${v.severity_label}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderMitre(vulns) {
+  if (!vulns || vulns.length === 0) {
+    document.getElementById('mitreList').innerHTML = '<div class="empty">No mappings</div>';
+    return;
+  }
+  
+  const seen = new Set();
+  const unique = vulns.filter(v => {
+    if (seen.has(v.mitre_id)) return false;
+    seen.add(v.mitre_id);
+    return true;
+  });
+  
+  document.getElementById('mitreList').innerHTML = unique.map(v => `
+    <div class="mitre-item">
+      <div>
+        <div class="mitre-id">${v.mitre_id}</div>
+        <div class="mitre-name">${v.mitre_name}</div>
+      </div>
+      <div class="mitre-tactic">${v.mitre_tactic}</div>
+    </div>
+  `).join('');
+}
+
+function renderHosts(hosts) {
+  document.getElementById('hostCount').textContent = `${hosts.length} hosts`;
+  
+  if (!hosts || hosts.length === 0) {
+    document.getElementById('hostsBody').innerHTML = '<tr><td colspan="5" class="empty">No hosts found</td></tr>';
+    return;
+  }
+  
+  document.getElementById('hostsBody').innerHTML = hosts.map(h => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--teal)">${h.ip}</td>
+      <td style="color:var(--red);font-family:var(--mono);font-size:11px">${h.critical}</td>
+      <td style="color:var(--orange);font-family:var(--mono);font-size:11px">${h.high}</td>
+      <td style="color:var(--amber);font-family:var(--mono);font-size:11px">${h.medium}</td>
+      <td style="color:var(--green);font-family:var(--mono);font-size:11px">${h.low}</td>
+    </tr>
+  `).join('');
+}
+
+// Load on start
+loadScans();
+
+// Auto refresh every 5 minutes
+setInterval(refreshScan, 300000);
+</script>
+</body>
+</html>
